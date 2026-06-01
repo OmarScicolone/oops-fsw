@@ -16,6 +16,7 @@ pub struct ParseResult {
 }
 
 pub fn parse(bytes: &[u8]) -> ParseResult {
+    
     let mut result = ParseResult {
         valid: Vec::new(),
         invalid: Vec::new(),
@@ -33,11 +34,9 @@ pub fn parse(bytes: &[u8]) -> ParseResult {
             let data_len = bytes[i + OFFSET_DATA_LEN] as usize;
             let reserved = [bytes[i + OFFSET_RESERVED], bytes[i + OFFSET_RESERVED + 1]];
 
-            // Null packets: no validation at all - scan forward to termination and accept
+            // Null packets: ignore entirely - scan forward to termination and discard
             if bytes[i + OFFSET_TYPE] == 0x00 {
-                let packet = Packet { packet_type: PacketType::Null, src_id, dst_id, reserved, data_len: data_len as u8, data: Vec::new() };
-                result.valid.push(packet);
-                i += OFFSET_DATA;
+                i += OFFSET_TYPE;
                 while i < bytes.len() && !bytes[i..].starts_with(&TERMINATION) {
                     i += 1;
                 }

@@ -1,5 +1,5 @@
 // Entry point: loads the raw byte stream from disk, runs the parser, and prints results.
-// Also answers Q4 by constructing a telecommand packet and computing its checksum.
+
 mod packet;
 mod checksum;
 mod parser;

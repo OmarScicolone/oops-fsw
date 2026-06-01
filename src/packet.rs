@@ -31,6 +31,7 @@ pub enum PacketType {
 }
 
 impl PacketType {
+    
     // Returns None for unrecognised type bytes (not 00-06).
     pub fn from_byte(b: u8) -> Option<PacketType> {
         match b {
