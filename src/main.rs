@@ -1,7 +1,6 @@
 // Entry point: Load the raw byte stream from disk, call the parser and answer the questions
 
 mod packet;
-mod checksum;
 mod parser;
 
 use parser::parse;

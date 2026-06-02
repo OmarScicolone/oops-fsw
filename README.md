@@ -22,7 +22,6 @@ cargo run
 - `src/main.rs` — entry point, prints answers to Q1–Q4
 - `src/parser.rs` — scans the byte stream and classifies packets
 - `src/packet.rs` — protocol constants and data structures
-- `src/checksum.rs` — checksum algorithm
 - `ASSUMPTIONS.md` — design decisions and ambiguities in the datasheet
 - `data/` — raw hex byte stream to parse
 - `docs/` — original challenge brief and datasheet
