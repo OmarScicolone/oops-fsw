@@ -1,5 +1,4 @@
-// Scans the raw byte stream for OOPS packets (sync marker A5 F0 EE).
-// Extracts, validates, and classifies each packet as valid or invalid.
+// Scans and validates the raw byte stream for OOPS packets (sync marker A5 F0 EE)
 
 use crate::packet::{
     Packet, PacketType, InvalidReason,
@@ -7,7 +6,6 @@ use crate::packet::{
     OFFSET_TYPE, OFFSET_SRC, OFFSET_DST, OFFSET_RESERVED, OFFSET_DATA_LEN, OFFSET_DATA,
     CHECKSUM_LEN, CONTROLLER_ID, OOPS_IDS, BROADCAST_ID,
 };
-use crate::checksum::compute_checksum;
 
 pub struct ParseResult {
     pub valid: Vec<Packet>,
@@ -16,7 +14,7 @@ pub struct ParseResult {
 }
 
 pub fn parse(bytes: &[u8]) -> ParseResult {
-    
+
     let mut result = ParseResult {
         valid: Vec::new(),
         invalid: Vec::new(),
@@ -36,7 +34,7 @@ pub fn parse(bytes: &[u8]) -> ParseResult {
 
             // Null packets: ignore entirely - scan forward to termination and discard
             if bytes[i + OFFSET_TYPE] == 0x00 {
-                i += OFFSET_TYPE;
+                i += OFFSET_DATA;
                 while i < bytes.len() && !bytes[i..].starts_with(&TERMINATION) {
                     i += 1;
                 }
@@ -46,7 +44,7 @@ pub fn parse(bytes: &[u8]) -> ParseResult {
 
             // ****** DATA LENGTH VALIDATION ******
             if data_len > MAX_DATA_LEN
-                || !bytes[i + OFFSET_DATA + data_len + CHECKSUM_LEN..].starts_with(&TERMINATION)
+                || !bytes[i + OFFSET_DATA + data_len + CHECKSUM_LEN..].starts_with(&TERMINATION) // checks that the packet is well-formed: termination must be exactly where data_len predicts
             {
                 result.invalid.push((InvalidReason::BadDataLength, None));
                 i += OFFSET_DATA;
@@ -70,7 +68,7 @@ pub fn parse(bytes: &[u8]) -> ParseResult {
             // ****** END PACKET TYPE VALIDATION ******
 
             // extract data and create packet
-            let data = bytes[i + OFFSET_DATA..i + OFFSET_DATA + data_len].to_vec();
+            let data = bytes[i + OFFSET_DATA .. i + OFFSET_DATA + data_len].to_vec();
             let packet = Packet { packet_type, src_id, dst_id, reserved, data_len: data_len as u8, data };
 
             // ****** DEVICE ID VALIDATION ******
@@ -84,16 +82,20 @@ pub fn parse(bytes: &[u8]) -> ParseResult {
             // ****** END DEVICE ID VALIDATION ******
 
             // ****** PACKET DIRECTION VALIDATION ******
-            let valid_src_dst = if packet.src_id == CONTROLLER_ID {
-                OOPS_IDS.contains(&packet.dst_id) || packet.dst_id == BROADCAST_ID
-            } else {
-                packet.dst_id == CONTROLLER_ID || packet.dst_id == BROADCAST_ID
-            };
             let valid_type_src = match packet.packet_type.sender_is_controller() {
-                Some(should_be_controller) => (packet.src_id == CONTROLLER_ID) == should_be_controller,
-                None => true,
+                Some(true)  => packet.src_id == CONTROLLER_ID,
+                Some(false) => OOPS_IDS.contains(&packet.src_id),
+                None        => true,
             };
-            if !valid_src_dst || !valid_type_src {
+
+            let valid_type_dst = match packet.packet_type {
+                PacketType::Request | PacketType::Command                               => OOPS_IDS.contains(&packet.dst_id) || packet.dst_id == BROADCAST_ID,
+                PacketType::OutboundData                                                => OOPS_IDS.contains(&packet.dst_id),
+                PacketType::Telemetry | PacketType::InboundData | PacketType::AckNack   => packet.dst_id == CONTROLLER_ID,
+                _                                                                       => false,
+            };
+
+            if !valid_type_src || !valid_type_dst {
                 result.invalid.push((InvalidReason::BadPacketDirection, Some(packet)));
                 i += MIN_PACKET_LEN + data_len;
                 continue;
@@ -101,9 +103,8 @@ pub fn parse(bytes: &[u8]) -> ParseResult {
             // ****** END PACKET DIRECTION VALIDATION ******
 
             // ****** CHECKSUM VALIDATION ******
-            let computed = compute_checksum(&bytes[i + OFFSET_TYPE..i + OFFSET_DATA + data_len]);
-            let stored = bytes[i + OFFSET_DATA + data_len] as u16
-                       | (bytes[i + OFFSET_DATA + data_len + 1] as u16) << 8;
+            let computed = packet.checksum();
+            let stored = bytes[i + OFFSET_DATA + data_len] as u16 | (bytes[i + OFFSET_DATA + data_len + 1] as u16) << 8;
             if computed != stored {
                 result.invalid.push((InvalidReason::BadChecksum, Some(packet)));
                 i += MIN_PACKET_LEN + data_len;

@@ -1,4 +1,4 @@
-// Data structures for OOPS packets as defined in the datasheet.
+// Constants, data structures and method for OOPS packets
 
 // Protocol constants
 pub const SYNC: [u8; 3]        = [0xA5, 0xF0, 0xEE];
@@ -31,7 +31,19 @@ pub enum PacketType {
 }
 
 impl PacketType {
-    
+
+    pub fn to_byte(&self) -> u8 {
+        match self {
+            PacketType::Null         => 0x00,
+            PacketType::Request      => 0x01,
+            PacketType::Telemetry    => 0x02,
+            PacketType::InboundData  => 0x03,
+            PacketType::OutboundData => 0x04,
+            PacketType::Command      => 0x05,
+            PacketType::AckNack      => 0x06,
+        }
+    }
+
     // Returns None for unrecognised type bytes (not 00-06).
     pub fn from_byte(b: u8) -> Option<PacketType> {
         match b {
@@ -53,7 +65,7 @@ impl PacketType {
         match self {
             PacketType::Request | PacketType::OutboundData | PacketType::Command => Some(true),
             PacketType::Telemetry | PacketType::InboundData | PacketType::AckNack => Some(false),
-            PacketType::Null => None,
+            _ => None,
         }
     }
 }
@@ -74,4 +86,29 @@ pub struct Packet {
     pub reserved: [u8; 2],
     pub data_len: u8,
     pub data: Vec<u8>,
+}
+
+impl Packet {
+    pub fn checksum(&self) -> u16 {
+        let mut bytes = vec![
+            self.packet_type.to_byte(),
+            self.src_id,
+            self.dst_id,
+            self.data_len,
+            self.reserved[0],
+            self.reserved[1],
+        ];
+        bytes.extend_from_slice(&self.data);
+        compute_checksum(&bytes)
+    }
+}
+
+fn compute_checksum(bytes: &[u8]) -> u16 {
+    let mut acc: u16 = 0xACE1;
+    for &byte in bytes {
+        acc = acc.rotate_left(3);
+        acc = acc ^ byte as u16;
+        acc = acc.wrapping_add(0x1F);
+    }
+    acc
 }

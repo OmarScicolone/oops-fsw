@@ -5,15 +5,20 @@ Each packet is assumed to start with a correct sync marker (A5 F0 EE) and end wi
 
 ## 2. Header field order follows the datasheet diagram
 The diagram shows the header field order as: Sync | Type | Src ID | Dst ID | Data Length | Reserved. This differs from the written description in the datasheet, which places Reserved before Data Length.
-Verified empirically: temporarily swapping OFFSET_DATA_LEN to offset 8 and OFFSET_RESERVED to offset 6 (text order) caused the parser to panic with an out-of-bounds error, because the byte at offset 8 produced data_len values far exceeding the file length. Restoring to diagram order (OFFSET_DATA_LEN=6, OFFSET_RESERVED=7) gives 940 valid packets.
 
-## 3. Padding counts only inter-packet bytes *(da chiedere)*
-Only bytes that fall outside any packet boundary (i.e. bytes not part of any sync-to-termination sequence) are counted as padding. The bytes of invalid packets are not counted as padding, they are reported separately as invalid packets.
+Verified empirically: temporarily swapping OFFSET_DATA_LEN to offset 8 and OFFSET_RESERVED to offset 6 (text order) caused the parser to panic with an out-of-bounds error, because the byte at offset 8 produced data_len values far exceeding the file length.
 
-## 4. Null packets are considered valid without any validation
-The datasheet states that Null packets (type 00) should be ignored and that no guarantees are made about their contents. I therefore accept them as-is: once the sync marker and type byte are identified, I scan forward to the next termination sequence and mark the packet as valid, without reading or validating any other field.
+## 3. Only inter-packet bytes are considered not useful data
+Bytes that fall between packet boundaries are the only data considered "not useful". Bytes that belong to an invalid packet are not considered "not useful" but they are still part of a packet, just an invalid one.
 
-## 5. Checksum bytes are stored little-endian (LSB first)
-The datasheet does not specify the byte order of the 2-byte checksum field. Reading it as
-big-endian (MSB first) produced only 28 valid packets and 1012 invalid (of which 932 were checksum
-failures). Switching to little-endian (LSB first) gave 940 valid packets and only 100 invalid, confirming little-endian is the correct interpretation.
+## 4. Null packets are discarded
+The datasheet says that Null packets should be ignored and that no guarantees are made about their contents. They are therefore discarded entirely.
+
+## 5. Sender and receiver are validated based on packet type
+The datasheet describes which device sends (and receives) each packet type:
+
+- The sender must match the packet type: Request, OutboundData and Command are sent by the controller; Telemetry, InboundData and AckNack are sent by OOPS nodes.
+- The destination must also match: Telemetry, InboundData and AckNack must go to the controller only (no broadcast). OutboundData must go to a specific OOPS node (the datasheet says "a specific OOPS system", so broadcast is not allowed). Request and Command may be broadcast.
+
+## 6. Checksum bytes are stored little-endian (LSB first)
+The datasheet does not specify the byte order of the 2-byte checksum field. Reading it as big-endian (MSB first) produced only 7 valid packets and 1012 invalid (of which 932 were checksum failures). Switching to little-endian (LSB first) gave 919 valid packets and only 100 invalid, confirming little-endian is the correct interpretation.
