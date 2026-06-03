@@ -1,6 +1,6 @@
 # OOPS Flight Software Parser
 
-A Rust parser for serial packets from the Optical Operations Pointing System (OOPS), written as part of a flight software engineering challenge.
+A Rust program that parses serial data sniffed from a shared communications bus between a control computer and a number of OOPS systems.
 
 ## What it does
 
@@ -19,7 +19,7 @@ cargo run
 
 ## Project structure
 
-- `src/main.rs` — entry point, prints answers to Q1–Q4
+- `src/main.rs` — entry point, loads data, calls the parser and prints answers to Q1–Q4
 - `src/parser.rs` — scans the byte stream and classifies packets
 - `src/packet.rs` — protocol constants and data structures
 - `ASSUMPTIONS.md` — design decisions and ambiguities in the datasheet

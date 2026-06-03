@@ -7,7 +7,7 @@ pub const MAX_DATA_LEN: usize  = 241;
 pub const CHECKSUM_LEN: usize  = 2;
 pub const MIN_PACKET_LEN: usize = 14; // 9 header + 2 checksum + 3 termination
 
-// Valid device IDs as defined in the datasheet
+// Valid device IDs
 pub const CONTROLLER_ID: u8 = 1;
 pub const OOPS_IDS: [u8; 4] = [4, 5, 6, 7];
 pub const BROADCAST_ID: u8  = 0xFF;
@@ -32,6 +32,7 @@ pub enum PacketType {
 
 impl PacketType {
 
+    // Returns the byte value for this packet type
     pub fn to_byte(&self) -> u8 {
         match self {
             PacketType::Null         => 0x00,
@@ -44,7 +45,7 @@ impl PacketType {
         }
     }
 
-    // Returns None for unrecognised type bytes (not 00-06).
+    // Returns PacketType from a given byte. Returns None if the byte is not a valid type (00-06).
     pub fn from_byte(b: u8) -> Option<PacketType> {
         match b {
             0x00 => Some(PacketType::Null),
@@ -74,7 +75,7 @@ pub enum InvalidReason {
     BadPacketType,      // unrecognised type (not 00-06)
     BadDataLength,      // data_len > 241, or termination bytes not where expected
     BadDeviceId,        // src or dst is not a valid device ID
-    BadPacketDirection, // incoherent src/dst combination, or type/src mismatch
+    BadPacketDirection, // incoherent src/dst combination
     BadChecksum,        // checksum does not match
 }
 
@@ -89,6 +90,7 @@ pub struct Packet {
 }
 
 impl Packet {
+    
     pub fn checksum(&self) -> u16 {
         let mut bytes = vec![
             self.packet_type.to_byte(),
@@ -98,7 +100,9 @@ impl Packet {
             self.reserved[0],
             self.reserved[1],
         ];
-        bytes.extend_from_slice(&self.data);
+        for &byte in &self.data {
+            bytes.push(byte);
+        }
         compute_checksum(&bytes)
     }
 }

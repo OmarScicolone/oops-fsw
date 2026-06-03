@@ -6,8 +6,6 @@ Each packet is assumed to start with a correct sync marker (A5 F0 EE) and end wi
 ## 2. Header field order follows the datasheet diagram
 The diagram shows the header field order as: Sync | Type | Src ID | Dst ID | Data Length | Reserved. This differs from the written description in the datasheet, which places Reserved before Data Length.
 
-Verified empirically: temporarily swapping OFFSET_DATA_LEN to offset 8 and OFFSET_RESERVED to offset 6 (text order) caused the parser to panic with an out-of-bounds error, because the byte at offset 8 produced data_len values far exceeding the file length.
-
 ## 3. Only bytes between different packets are considered not useful data
 Bytes that fall between packet boundaries are the only data considered "not useful". Bytes that belong to an invalid packet are not considered "not useful" but they are still part of a packet, just an invalid one.
 

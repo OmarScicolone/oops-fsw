@@ -1,4 +1,4 @@
-// Entry point: Load the raw byte stream from disk, call the parser and answer the questions
+// Load the raw byte stream from the file, call the parser and answer the questions
 
 mod packet;
 mod parser;
@@ -6,9 +6,8 @@ mod parser;
 use parser::parse;
 use packet::{InvalidReason, Packet, PacketType, CONTROLLER_ID, OOPS_IDS};
 
-
 fn main() {
-    let bytes = load_files("data/fsw-output.txt");
+    let bytes = load_file("data/fsw-output.txt");
 
     let result = parse(&bytes);
 
@@ -42,7 +41,7 @@ fn main() {
     // Q3: how many padding bytes?
     println!("Q3 - Padding bytes: {}", result.padding_bytes);
 
-    // Q4: Compute checksum for the packet specified from specification
+    // Q4: compute the checksum of sample packet from the datasheet
     let pkt_q4 = Packet {
         packet_type: PacketType::Command,
         src_id:      CONTROLLER_ID,
@@ -53,11 +52,10 @@ fn main() {
     };
 
     println!("Q4 - Checksum of the specified packet: {:#06X}", pkt_q4.checksum());
-    
 
 }
 
-fn load_files(path_file: &str) -> Vec<u8> {
+fn load_file(path_file: &str) -> Vec<u8> {
     let content = std::fs::read_to_string(path_file).expect("file not found");
     let mut bytes = Vec::new();
     

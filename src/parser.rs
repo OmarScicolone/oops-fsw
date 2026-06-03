@@ -1,4 +1,4 @@
-// Scans and validates the raw byte stream for OOPS packets (sync marker A5 F0 EE)
+// Scans and validates the raw byte stream
 
 use crate::packet::{
     Packet, PacketType, InvalidReason,
@@ -32,10 +32,10 @@ pub fn parse(bytes: &[u8]) -> ParseResult {
             let data_len = bytes[i + OFFSET_DATA_LEN] as usize;
             let reserved = [bytes[i + OFFSET_RESERVED], bytes[i + OFFSET_RESERVED + 1]];
 
-            // Null packets: ignore entirely - scan forward to termination and discard
+            // Null packets: ignore entirely. Scan forward to termination and discard
             if bytes[i + OFFSET_TYPE] == 0x00 {
                 i += OFFSET_DATA;
-                while i < bytes.len() && !bytes[i..].starts_with(&TERMINATION) {
+                while !bytes[i..].starts_with(&TERMINATION) {
                     i += 1;
                 }
                 i += TERMINATION.len();
@@ -48,7 +48,7 @@ pub fn parse(bytes: &[u8]) -> ParseResult {
             {
                 result.invalid.push((InvalidReason::BadDataLength, None));
                 i += OFFSET_DATA;
-                while i < bytes.len() && !bytes[i..].starts_with(&TERMINATION) {
+                while !bytes[i..].starts_with(&TERMINATION) {
                     i += 1;
                 }
                 i += TERMINATION.len();
@@ -58,7 +58,7 @@ pub fn parse(bytes: &[u8]) -> ParseResult {
 
             // ****** PACKET TYPE VALIDATION ******
             let packet_type = match PacketType::from_byte(bytes[i + OFFSET_TYPE]) {
-                Some(t) => t,
+                Some(packet_type) => packet_type,
                 None => {
                     result.invalid.push((InvalidReason::BadPacketType, None));
                     i += MIN_PACKET_LEN + data_len;
@@ -92,7 +92,7 @@ pub fn parse(bytes: &[u8]) -> ParseResult {
                 PacketType::Request | PacketType::Command                               => OOPS_IDS.contains(&packet.dst_id) || packet.dst_id == BROADCAST_ID,
                 PacketType::OutboundData                                                => OOPS_IDS.contains(&packet.dst_id),
                 PacketType::Telemetry | PacketType::InboundData | PacketType::AckNack   => packet.dst_id == CONTROLLER_ID,
-                _                                                                       => false,
+                PacketType::Null                                                        => unreachable!("Null packets are discarded"),
             };
 
             if !valid_type_src || !valid_type_dst {
